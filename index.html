@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台灣骨水泥市場採購儀表板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: A single-page application with four main interactive views (Market Overview, Supplier Directory, Product Comparison, Procurement Considerations) navigated by a top tab bar. This structure guides the user from a high-level summary to detailed, filterable data and finally to qualitative decision-making criteria, mirroring a procurement officer's workflow. The core is the interactive supplier directory with filtering and search, which is far more efficient than a static document. -->
+    <!-- Visualization & Content Choices: Market Share: Donut chart (Chart.js) for quick proportional comparison. Supplier Data: Interactive card grid (HTML/JS/Tailwind) for clear organization and filtering, superior to a static table. Product Specs: Dynamically generated comparison table (HTML/JS) for direct side-by-side evaluation. Decision Criteria: Accordion layout (HTML/JS) to present dense text in a digestible, user-controlled manner. All interactions are designed to support the procurement task of finding and comparing suitable products. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active {
+            border-color: #2563eb;
+            color: #2563eb;
+            background-color: #dbeafe;
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 450px;
+            max-height: 80vh;
+        }
+        .card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-700">台灣骨水泥市場採購儀表板</h1>
+            <p class="mt-2 text-lg text-gray-500">為醫院採購決策者設計的互動式分析工具</p>
+        </header>
+
+        <nav class="mb-8 bg-white p-2 rounded-lg shadow-sm sticky top-2 z-10">
+            <div class="flex flex-wrap justify-center gap-2 md:gap-4">
+                <button data-tab="overview" class="tab-btn active px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent">市場總覽</button>
+                <button data-tab="directory" class="tab-btn px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent">供應商列表</button>
+                <button data-tab="comparison" class="tab-btn px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent flex items-center">
+                    產品比較
+                    <span id="comparison-count" class="hidden ml-2 inline-block bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full"></span>
+                </button>
+                <button data-tab="considerations" class="tab-btn px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent">採購考量</button>
+            </div>
+        </nav>
+
+        <main>
+            <section id="overview" class="content-section active">
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">市場總覽</h2>
+                    <p class="text-gray-600 mb-8 text-center max-w-3xl mx-auto">
+                        此區塊提供台灣骨水泥市場的宏觀視角，主要以原廠製造商的市佔率呈現。透過此圖表，您可以快速了解市場上主要品牌的競爭格局，有助於初步評估供應商的市場地位與穩定性。
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                        <div class="chart-container">
+                            <canvas id="marketShareChart"></canvas>
+                        </div>
+                        <div class="space-y-4">
+                             <div class="p-4 bg-blue-50 rounded-lg">
+                                <h3 class="font-bold text-lg text-blue-800">市場領導者</h3>
+                                <p class="text-gray-600">Stryker 和 DePuy Synthes (J&J) 為市場上的主要領導者，合計佔有超過一半的市場份額，其產品線廣泛且在各大醫學中心滲透率高。</p>
+                            </div>
+                            <div class="p-4 bg-green-50 rounded-lg">
+                                <h3 class="font-bold text-lg text-green-800">專業領域挑戰者</h3>
+                                <p class="text-gray-600">Heraeus Medical 和 Zimmer Biomet 在特定應用領域（如含抗生素骨水泥）具有強大競爭力，提供多樣化的產品組合以滿足不同臨床需求。</p>
+                            </div>
+                             <div class="p-4 bg-amber-50 rounded-lg">
+                                <h3 class="font-bold text-lg text-amber-800">利基市場參與者</h3>
+                                <p class="text-gray-600">其他品牌如 Tecres 等，雖然市佔率較低，但在特定產品特性或價格上可能具有優勢，值得關注。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="directory" class="content-section">
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">供應商列表</h2>
+                     <p class="text-gray-600 mb-8 text-center max-w-3xl mx-auto">
+                        這裡是台灣市場上主要骨水泥供應商的詳細目錄。您可以透過下方的篩選器快速尋找符合您需求的產品，或在搜尋框中輸入關鍵字查找特定製造商或代理商。點擊卡片上的「加入比較」按鈕，可將該產品加入比較清單。
+                    </p>
+                    <div class="flex flex-wrap gap-4 mb-6 p-4 bg-gray-100 rounded-lg justify-center">
+                        <div class="w-full md:w-auto">
+                            <label for="search" class="sr-only">搜尋</label>
+                            <input type="text" id="search" placeholder="搜尋製造商或代理商..." class="w-full md:w-64 p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="w-full sm:w-auto">
+                            <label for="viscosity-filter" class="sr-only">黏稠度</label>
+                            <select id="viscosity-filter" class="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                                <option value="all">所有黏稠度</option>
+                                <option value="高黏稠度">高黏稠度</option>
+                                <option value="中黏稠度">中黏稠度</option>
+                                <option value="低黏稠度">低黏稠度</option>
+                            </select>
+                        </div>
+                        <div class="w-full sm:w-auto">
+                             <label for="antibiotic-filter" class="sr-only">抗生素</label>
+                             <select id="antibiotic-filter" class="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                                <option value="all">所有抗生素選項</option>
+                                <option value="yes">含抗生素</option>
+                                <option value="no">不含抗生素</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="supplier-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    </div>
+                </div>
+            </section>
+
+            <section id="comparison" class="content-section">
+                 <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">產品比較</h2>
+                    <p class="text-gray-600 mb-8 text-center max-w-3xl mx-auto">
+                        此頁面顯示您已選擇進行比較的產品。您可以在此並列檢視各產品的關鍵規格，例如黏稠度、設定時間、抗生素類型等，以利於您做出最符合臨床效益與成本考量的採購決策。請先至「供應商列表」頁面點擊「加入比較」來新增項目。
+                    </p>
+                    <div id="comparison-table-container" class="overflow-x-auto min-h-[100px]">
+                        <!-- Comparison table will be generated here by JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <section id="considerations" class="content-section">
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">採購考量</h2>
+                    <p class="text-gray-600 mb-8 text-center max-w-3xl mx-auto">
+                        除了產品規格外，骨水泥的採購決策還涉及多方面因素。本區塊整理了臨床應用、操作特性、法規與供應鏈等關鍵考量點，以 checklist 形式呈現，協助您進行全面性的評估。點擊各項標題可展開詳細說明。
+                    </p>
+                    <div id="accordion-container" class="space-y-4 max-w-4xl mx-auto">
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const supplierData = [
+                { id: 1, manufacturer: 'Stryker', agent: '壯生醫療器材', country: '美國', products: [{ name: 'Simplex P', viscosity: '高黏稠度', settingTime: '9-12分鐘', antibiotic: '否', antibioticType: 'N/A' }, { name: 'Simplex P with Tobramycin', viscosity: '高黏稠度', settingTime: '9-12分鐘', antibiotic: '是', antibioticType: 'Tobramycin' }] },
+                { id: 2, manufacturer: 'DePuy Synthes (J&J)', agent: '台灣嬌生', country: '美國', products: [{ name: 'SmartSet HV', viscosity: '高黏稠度', settingTime: '11-14分鐘', antibiotic: '否', antibioticType: 'N/A' }, { name: 'SmartSet GHV', viscosity: '高黏稠度', settingTime: '11-14分鐘', antibiotic: '是', antibioticType: 'Gentamicin' }] },
+                { id: 3, manufacturer: 'Zimmer Biomet', agent: '捷邁醫療器材', country: '美國', products: [{ name: 'Refobacin Bone Cement R', viscosity: '低黏稠度', settingTime: '8-12分鐘', antibiotic: '是', antibioticType: 'Gentamicin' }, { name: 'Dough-Type Cement', viscosity: '中黏稠度', settingTime: '10-13分鐘', antibiotic: '否', antibioticType: 'N/A' }] },
+                { id: 4, manufacturer: 'Heraeus Medical', agent: '德商赫特', country: '德國', products: [{ name: 'PALACOS R', viscosity: '高黏稠度', settingTime: '8-12分鐘', antibiotic: '否', antibioticType: 'N/A' }, { name: 'PALACOS R+G', viscosity: '高黏稠度', settingTime: '8-12分鐘', antibiotic: '是', antibioticType: 'Gentamicin' }] },
+                { id: 5, manufacturer: 'Tecres S.p.A.', agent: '美敦力醫療產品', country: '義大利', products: [{ name: 'Cemex System', viscosity: '低黏稠度', settingTime: '9分鐘', antibiotic: '否', antibioticType: 'N/A' }, { name: 'Vancogenx', viscosity: '中黏稠度', settingTime: '12-15分鐘', antibiotic: '是', antibioticType: 'Vancomycin + Gentamicin' }] },
+                { id: 6, manufacturer: 'Smith & Nephew', agent: '英商史耐輝', country: '英國', products: [{ name: 'VERTEBROPLASTIC', viscosity: '低黏稠度', settingTime: '15-20分鐘', antibiotic: '否', antibioticType: 'N/A' }, { name: 'CERAMENT G', viscosity: '中黏稠度', settingTime: '10-15分鐘', antibiotic: '是', antibioticType: 'Gentamicin' }] }
+            ];
+
+            const considerationsData = [
+                { title: '臨床應用與醫師偏好', content: '不同手術（如髖關節、膝關節、脊椎）對骨水泥的黏稠度與操作時間有不同要求。應與主要使用科部的醫師溝通，了解其手術習慣與偏好，這對於提升手術效率與成功率至關重要。' },
+                { title: '操作特性 (黏稠度與設定時間)', content: '高黏稠度骨水泥不易滲漏，適合加壓使用；低黏稠度則易於注射。設定時間需與手術流程匹配，過長或過短都可能影響手術。需評估產品的工作時間(working time)與硬化時間(setting time)是否符合需求。' },
+                { title: '抗生素添加選項', content: '含抗生素骨水泥能降低術後感染風險，尤其適用於翻修手術或高感染風險患者。需考量院內常見菌種及抗藥性，選擇合適的抗生素種類（如Gentamicin, Tobramycin）與劑量。' },
+                { title: '混合系統與氣味', content: '封閉式的混合系統能減少單體(monomer)氣體揮發，改善手術室空氣品質，並降低氣泡產生，提升骨水泥機械強度。採購時可將混合系統的便利性與安全性納入評分。' },
+                { title: '法規認證與品質文件', content: '確認產品是否取得台灣衛福部食藥署(TFDA)的醫療器材許可證。要求供應商提供完整技術文件、臨床報告及不良事件通報記錄，確保產品安全性與合規性。' },
+                { title: '供應鏈穩定性與售後服務', content: '評估代理商的庫存管理能力、配送效率及緊急訂單處理能力。了解其是否提供產品教育訓練、手術跟刀等技術支援服務，確保臨床端能正確使用產品。' }
+            ];
+
+            const tabs = document.querySelectorAll('.tab-btn');
+            const sections = document.querySelectorAll('.content-section');
+            const searchInput = document.getElementById('search');
+            const viscosityFilter = document.getElementById('viscosity-filter');
+            const antibioticFilter = document.getElementById('antibiotic-filter');
+            const supplierGrid = document.getElementById('supplier-grid');
+            
+            let comparisonList = [];
+
+            function switchTab(tabId) {
+                tabs.forEach(tab => {
+                    tab.classList.toggle('active', tab.dataset.tab === tabId);
+                });
+                sections.forEach(section => {
+                    section.classList.toggle('active', section.id === tabId);
+                });
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+            });
+
+            function renderSuppliers() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const viscosity = viscosityFilter.value;
+                const antibiotic = antibioticFilter.value;
+
+                supplierGrid.innerHTML = '';
+                const filteredData = supplierData.filter(supplier => {
+                    const matchesSearch = supplier.manufacturer.toLowerCase().includes(searchTerm) || supplier.agent.toLowerCase().includes(searchTerm);
+                    return matchesSearch;
+                });
+
+                if (filteredData.length === 0) {
+                    supplierGrid.innerHTML = '<p class="col-span-full text-center text-gray-500">找不到符合條件的供應商。</p>';
+                    return;
+                }
+                
+                let hasVisibleProduct = false;
+                filteredData.forEach(supplier => {
+                    let productsHtml = '';
+                    let supplierHasVisibleProduct = false;
+
+                    supplier.products.forEach(product => {
+                         const matchesViscosity = viscosity === 'all' || product.viscosity === viscosity;
+                         const matchesAntibiotic = antibiotic === 'all' || (antibiotic === 'yes' && product.antibiotic === '是') || (antibiotic === 'no' && product.antibiotic === '否');
+                        
+                         if(matchesViscosity && matchesAntibiotic) {
+                            supplierHasVisibleProduct = true;
+                            hasVisibleProduct = true;
+                            const isAdded = comparisonList.some(item => item.supId === supplier.id && item.prodName === product.name);
+                            productsHtml += `
+                                <div class="mt-2 p-3 bg-gray-50 rounded-md">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <h4 class="font-semibold text-gray-800">${product.name}</h4>
+                                            <p class="text-sm text-gray-500">${product.viscosity} / 設定時間: ${product.settingTime}</p>
+                                            <p class="text-sm text-gray-500">含抗生素: <span class="${product.antibiotic === '是' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}">${product.antibiotic} ${product.antibiotic === '是' ? `(${product.antibioticType})` : ''}</span></p>
+                                        </div>
+                                        <button data-supplier-id="${supplier.id}" data-product-name="${product.name}" class="toggle-comparison-btn text-xs px-2 py-1 rounded ${isAdded ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}">${isAdded ? '移出比較' : '加入比較'}</button>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    if(supplierHasVisibleProduct){
+                         supplierGrid.innerHTML += `
+                            <div class="card bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                <h3 class="text-xl font-bold text-gray-800">${supplier.manufacturer}</h3>
+                                <p class="text-sm text-gray-500 mb-1">代理商: ${supplier.agent}</p>
+                                <p class="text-sm text-gray-400 mb-3">製造國: ${supplier.country}</p>
+                                <div class="space-y-2">${productsHtml}</div>
+                            </div>
+                        `;
+                    }
+                });
+
+                if(!hasVisibleProduct && filteredData.length > 0) {
+                    supplierGrid.innerHTML = '<p class="col-span-full text-center text-gray-500">依篩選條件找不到符合的產品。</p>';
+                }
+
+                document.querySelectorAll('.toggle-comparison-btn').forEach(btn => {
+                    btn.addEventListener('click', toggleComparison);
+                });
+            }
+
+            function updateComparisonCount() {
+                const countBadge = document.getElementById('comparison-count');
+                const count = comparisonList.length;
+                if (count > 0) {
+                    countBadge.textContent = count;
+                    countBadge.classList.remove('hidden');
+                } else {
+                    countBadge.classList.add('hidden');
+                }
+            }
+
+            function toggleComparison(event) {
+                const btn = event.target;
+                const supId = parseInt(btn.dataset.supplierId);
+                const prodName = btn.dataset.productName;
+                
+                const index = comparisonList.findIndex(item => item.supId === supId && item.prodName === prodName);
+
+                if (index > -1) {
+                    comparisonList.splice(index, 1);
+                    btn.textContent = '加入比較';
+                    btn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                    btn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                } else {
+                    const supplier = supplierData.find(s => s.id === supId);
+                    const product = supplier.products.find(p => p.name === prodName);
+                    comparisonList.push({ supId: supId, supName: supplier.manufacturer, prodName: product.name, ...product });
+                    btn.textContent = '移出比較';
+                    btn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                    btn.classList.add('bg-red-500', 'hover:bg-red-600');
+                }
+                renderComparisonTable();
+                updateComparisonCount();
+            }
+
+            function renderComparisonTable() {
+                const container = document.getElementById('comparison-table-container');
+                if (comparisonList.length === 0) {
+                    container.innerHTML = `<p class="text-center text-gray-500 py-10">尚未選擇任何產品進行比較。</p>`;
+                    return;
+                }
+
+                let tableHtml = `
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 sticky left-0 bg-gray-50 z-10">特性</th>
+                                ${comparisonList.map(item => `<th scope="col" class="px-6 py-3">${item.prodName}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white z-10">製造商</th>${comparisonList.map(item => `<td class="px-6 py-4">${item.supName}</td>`).join('')}</tr>
+                            <tr class="bg-gray-50 border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-gray-50 z-10">黏稠度</th>${comparisonList.map(item => `<td class="px-6 py-4">${item.viscosity}</td>`).join('')}</tr>
+                            <tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white z-10">設定時間</th>${comparisonList.map(item => `<td class="px-6 py-4">${item.settingTime}</td>`).join('')}</tr>
+                            <tr class="bg-gray-50 border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-gray-50 z-10">含抗生素</th>${comparisonList.map(item => `<td class="px-6 py-4">${item.antibiotic}</td>`).join('')}</tr>
+                            <tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white z-10">抗生素類型</th>${comparisonList.map(item => `<td class="px-6 py-4">${item.antibioticType}</td>`).join('')}</tr>
+                        </tbody>
+                    </table>`;
+                container.innerHTML = tableHtml;
+            }
+
+            function renderAccordion() {
+                const container = document.getElementById('accordion-container');
+                container.innerHTML = '';
+                considerationsData.forEach((item, index) => {
+                    container.innerHTML += `
+                        <div>
+                            <button class="accordion-btn w-full flex justify-between items-center text-left p-4 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none">
+                                <span class="font-semibold text-gray-700">${item.title}</span>
+                                <span class="accordion-icon transform rotate-0 transition-transform duration-300">▼</span>
+                            </button>
+                            <div class="accordion-content bg-white p-4 rounded-b-lg border border-t-0 border-gray-200">
+                                <p>${item.content}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                document.querySelectorAll('.accordion-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const content = btn.nextElementSibling;
+                        const icon = btn.querySelector('.accordion-icon');
+                        const isOpened = content.style.maxHeight && content.style.maxHeight !== '0px';
+
+                        document.querySelectorAll('.accordion-content').forEach(c => c.style.maxHeight = '0px');
+                        document.querySelectorAll('.accordion-icon').forEach(i => i.style.transform = 'rotate(0deg)');
+
+                        if (!isOpened) {
+                            content.style.maxHeight = content.scrollHeight + 'px';
+                            icon.style.transform = 'rotate(180deg)';
+                        }
+                    });
+                });
+            }
+
+            const marketShareCtx = document.getElementById('marketShareChart').getContext('2d');
+            new Chart(marketShareCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Stryker', 'DePuy Synthes', 'Heraeus Medical', 'Zimmer Biomet', 'Others'],
+                    datasets: [{
+                        label: '市佔率',
+                        data: [35, 25, 18, 15, 7],
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'],
+                        borderColor: '#f8f9fa',
+                        borderWidth: 4,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { size: 14 }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '主要製造商市場份額預估',
+                            font: { size: 18, weight: 'bold' },
+                            padding: { top: 10, bottom: 20 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += context.parsed + '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            searchInput.addEventListener('input', renderSuppliers);
+            viscosityFilter.addEventListener('change', renderSuppliers);
+            antibioticFilter.addEventListener('change', renderSuppliers);
+
+            renderSuppliers();
+            renderComparisonTable();
+            renderAccordion();
+            updateComparisonCount();
+        });
+    </script>
+
+</body>
+</html>
+
