@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台灣骨水泥市場採購儀表板 </title>
+    <title>台灣骨水泥市場採購儀表板 (結案)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutrals -->
-    <!-- Application Structure Plan: A fully mobile-first, responsive SPA. On desktop, it features a 4-tab top navigation. On mobile (<768px), this transforms into an app-like bottom tab bar. The "Comparison" view intelligently switches from a desktop table to a swipeable card interface on mobile. This final version includes a bug fix for the swipe UI's state management and a UX enhancement for auto-tab switching. -->
-    <!-- Visualization & Content Choices: The core visualizations (KPIs, Doughnut Chart, Scoring Grid, Comparison Table/Cards) are retained. The key improvement is in the JavaScript logic, ensuring the state of the comparison swipe UI (`currentSwipeIndex`) is validated after items are removed, preventing out-of-bounds errors. The user flow is also improved by programmatically switching tabs after adding an item to compare on mobile. -->
+    <!-- Application Structure Plan: A fully mobile-first, responsive SPA. On desktop, it features a 4-tab top navigation. On mobile (<768px), this transforms into an app-like bottom tab bar. The "Comparison" view intelligently switches from a desktop table to a swipeable card interface on mobile. This final version includes a critical bug fix for the swipe UI event handling. -->
+    <!-- Visualization & Content Choices: The core visualizations are retained. The key improvement is in the JavaScript logic for the swipe gesture, specifically in the `dragStart` function. It now checks if the event target is the remove button, preventing the swipe from hijacking the click event. This resolves the core bug reported by the user, making the mobile UI fully functional. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
@@ -40,7 +40,7 @@
         
         <header class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-700">台灣骨水泥採購儀表板</h1>
-            <p class="mt-2 text-lg text-gray-500">For Jade 確認AI效益</p>
+            <p class="mt-2 text-lg text-gray-500">For Jade 評價AI效益</p>
         </header>
 
         <!-- Desktop Top Navigation -->
@@ -211,7 +211,6 @@
                     isAdding = true;
                 }
 
-                // BUG FIX: Validate currentSwipeIndex before re-rendering
                 if (currentSwipeIndex >= comparisonList.length) {
                     currentSwipeIndex = Math.max(0, comparisonList.length - 1);
                 }
@@ -224,7 +223,6 @@
 
                 updateComparisonCount();
 
-                // UX ENHANCEMENT: Auto-switch to comparison tab on mobile when adding
                 if (isAdding && isMobile && document.getElementById('directory').classList.contains('active')) {
                     switchTab('comparison');
                 }
@@ -301,6 +299,7 @@
                 }).join('');
                 let dotsHtml = comparisonList.map((_, i) => `<div class="dot w-2 h-2 rounded-full bg-gray-300 ${i === currentSwipeIndex ? 'active' : ''}"></div>`).join('');
                 container.innerHTML = `<div class="comparison-swiper"><div class="comparison-track">${cardsHtml}</div></div><div class="dots-container flex justify-center space-x-2 mt-4">${dotsHtml}</div>`;
+                document.querySelectorAll('.toggle-comparison-btn').forEach(btn => btn.addEventListener('click', toggleComparison));
                 setupSwipe();
             }
 
@@ -310,7 +309,16 @@
                 const dots = document.querySelectorAll('.dots-container .dot');
                 let startX, currentX, diffX = 0, isDragging = false;
                 
-                function dragStart(e) { startX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX; isDragging = true; track.style.transition = 'none'; }
+                function dragStart(e) { 
+                    // BUG FIX: Prevent swipe when clicking the remove button
+                    if (e.target.closest('.toggle-comparison-btn')) {
+                        isDragging = false;
+                        return;
+                    }
+                    startX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX; 
+                    isDragging = true; 
+                    track.style.transition = 'none'; 
+                }
                 function dragMove(e) { if (!isDragging) return; currentX = e.type.includes('mouse') ? e.pageX : e.touches[0].clientX; diffX = currentX - startX; track.style.transform = `translateX(calc(-${currentSwipeIndex * 100}% + ${diffX}px))`; }
                 function dragEnd() {
                     if (!isDragging) return; isDragging = false; track.style.transition = 'transform 0.3s ease-in-out';
@@ -322,7 +330,8 @@
                 }
                 swiper.addEventListener('mousedown', dragStart); swiper.addEventListener('touchstart', dragStart);
                 swiper.addEventListener('mousemove', dragMove); swiper.addEventListener('touchmove', dragMove);
-                swiper.addEventListener('mouseup', dragEnd); swiper.addEventListener('mouseleave', dragEnd); swiper.addEventListener('touchend', dragEnd);
+                swiper.addEventListener('mouseup', dragEnd); swiper.addEventListener('mouseleave', dragEnd);
+                swiper.addEventListener('touchend', dragEnd);
                 
                 function updateSwipeUI() { track.style.transform = `translateX(-${currentSwipeIndex * 100}%)`; dots.forEach((dot, i) => dot.classList.toggle('active', i === currentSwipeIndex)); }
                 updateSwipeUI();
