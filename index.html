@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台灣骨水泥市場採購儀表板</title>
+    <title>台灣骨水泥市場採購儀表板 (V2)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutrals -->
-    <!-- Application Structure Plan: A single-page application with four main interactive views (Market Overview, Supplier Directory, Product Comparison, Procurement Considerations) navigated by a top tab bar. This structure guides the user from a high-level summary to detailed, filterable data and finally to qualitative decision-making criteria, mirroring a procurement officer's workflow. The core is the interactive supplier directory with filtering and search, which is far more efficient than a static document. -->
-    <!-- Visualization & Content Choices: Market Share: Donut chart (Chart.js) for quick proportional comparison. Supplier Data: Interactive card grid (HTML/JS/Tailwind) for clear organization and filtering, superior to a static table. Product Specs: Dynamically generated comparison table (HTML/JS) for direct side-by-side evaluation. Decision Criteria: Accordion layout (HTML/JS) to present dense text in a digestible, user-controlled manner. All interactions are designed to support the procurement task of finding and comparing suitable products. -->
+    <!-- Application Structure Plan: Upgraded to a dashboard-centric, mobile-first SPA. The structure remains a 4-tab layout but is now fully responsive. The "Overview" tab is a true dashboard. The "Directory" and "Comparison" tabs have price/clinical data. The "Considerations" tab is now a fully interactive scoring tool, transforming it from a static checklist into a dynamic decision-support system. This structure provides a complete, top-down analytical workflow on any device. -->
+    <!-- Visualization & Content Choices: KPIs: Data cards for metrics. Market Share: Doughnut chart. Supplier Data: Interactive cards with filters. Comparison Table: Upgraded with JS-driven conditional formatting. Considerations Page: Redesigned as an interactive scoring grid with visual feedback (icons, color-coded buttons) and a real-time summary score dashboard, making the evaluation process engaging and quantifiable. -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body {
@@ -35,11 +35,11 @@
         .chart-container {
             position: relative;
             width: 100%;
-            max-width: 450px;
+            max-width: 400px;
             margin-left: auto;
             margin-right: auto;
-            height: 450px;
-            max-height: 80vh;
+            height: 400px;
+            max-height: 70vh;
         }
         .card {
             transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
@@ -48,10 +48,25 @@
             transform: translateY(-5px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
         }
-        .accordion-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
+        .highlight-best {
+            background-color: #dcfce7 !important;
+            color: #166534;
+            font-weight: 600;
+        }
+        .highlight-worst {
+            background-color: #fee2e2 !important;
+            color: #991b1b;
+        }
+        .rating-btn {
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        .rating-btn.active {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 2px;
+        }
+        .score-bar {
+            transition: width 0.5s ease-in-out;
         }
     </style>
 </head>
@@ -61,44 +76,47 @@
         
         <header class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-700">台灣骨水泥市場採購儀表板</h1>
-            <p class="mt-2 text-lg text-gray-500">為醫院採購決策者設計的互動式分析工具</p>
+            <p class="mt-2 text-lg text-gray-500">智慧比較・互動決策</p>
         </header>
 
-        <nav class="mb-8 bg-white p-2 rounded-lg shadow-sm sticky top-2 z-10">
-            <div class="flex flex-wrap justify-center gap-2 md:gap-4">
-                <button data-tab="overview" class="tab-btn active px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent">市場總覽</button>
-                <button data-tab="directory" class="tab-btn px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent">供應商列表</button>
-                <button data-tab="comparison" class="tab-btn px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent flex items-center">
+        <nav class="mb-8 bg-white p-2 rounded-lg shadow-sm sticky top-2 z-20">
+            <div class="flex flex-col sm:flex-row sm:flex-wrap justify-center gap-2">
+                <button data-tab="overview" class="tab-btn active w-full sm:w-auto px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent">儀表板總覽</button>
+                <button data-tab="directory" class="tab-btn w-full sm:w-auto px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent">供應商列表</button>
+                <button data-tab="comparison" class="tab-btn w-full sm:w-auto px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent flex items-center justify-center">
                     產品比較
                     <span id="comparison-count" class="hidden ml-2 inline-block bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full"></span>
                 </button>
-                <button data-tab="considerations" class="tab-btn px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent">採購考量</button>
+                <button data-tab="considerations" class="tab-btn w-full sm:w-auto px-4 py-2 text-sm md:text-base font-medium rounded-md border-b-2 border-transparent">互動採購考量</button>
             </div>
         </nav>
 
         <main>
             <section id="overview" class="content-section active">
                 <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">市場總覽</h2>
-                    <p class="text-gray-600 mb-8 text-center max-w-3xl mx-auto">
-                        此區塊提供台灣骨水泥市場的宏觀視角，主要以原廠製造商的市佔率呈現。透過此圖表，您可以快速了解市場上主要品牌的競爭格局，有助於初步評估供應商的市場地位與穩定性。
-                    </p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                    <h2 class="text-2xl font-bold mb-6 text-center text-gray-700">儀表板總覽</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 text-center">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-blue-800">總供應商數</h3>
+                            <p id="kpi-total-suppliers" class="text-3xl font-bold text-blue-900"></p>
+                        </div>
+                         <div class="bg-green-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-green-800">平均健保點數</h3>
+                            <p id="kpi-avg-price" class="text-3xl font-bold text-green-900"></p>
+                        </div>
+                        <div class="bg-amber-50 p-4 rounded-lg">
+                            <h3 class="text-lg font-semibold text-amber-800">含抗生素產品比例</h3>
+                            <p id="kpi-antibiotic-ratio" class="text-3xl font-bold text-amber-900"></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                         <div class="chart-container">
                             <canvas id="marketShareChart"></canvas>
                         </div>
                         <div class="space-y-4">
-                             <div class="p-4 bg-blue-50 rounded-lg">
-                                <h3 class="font-bold text-lg text-blue-800">市場領導者</h3>
-                                <p class="text-gray-600">Stryker 和 DePuy Synthes (J&J) 為市場上的主要領導者，合計佔有超過一半的市場份額，其產品線廣泛且在各大醫學中心滲透率高。</p>
-                            </div>
-                            <div class="p-4 bg-green-50 rounded-lg">
-                                <h3 class="font-bold text-lg text-green-800">專業領域挑戰者</h3>
-                                <p class="text-gray-600">Heraeus Medical 和 Zimmer Biomet 在特定應用領域（如含抗生素骨水泥）具有強大競爭力，提供多樣化的產品組合以滿足不同臨床需求。</p>
-                            </div>
-                             <div class="p-4 bg-amber-50 rounded-lg">
-                                <h3 class="font-bold text-lg text-amber-800">利基市場參與者</h3>
-                                <p class="text-gray-600">其他品牌如 Tecres 等，雖然市佔率較低，但在特定產品特性或價格上可能具有優勢，值得關注。</p>
+                             <div class="p-4 bg-gray-50 rounded-lg border">
+                                <h3 class="font-bold text-lg text-gray-800">市場洞察</h3>
+                                <p class="text-gray-600 mt-2">Stryker 與 DePuy Synthes (J&J) 憑藉其品牌知名度與完整的產品線，在市場上佔據領先地位。Heraeus Medical 以其高品質的 PALACOS® 系列穩居第三，特別在感染預防領域具有優勢。整體市場價格帶廣泛，從基礎型到含特殊抗生素的高階產品，為採購提供了多樣化的選擇空間。</p>
                             </div>
                         </div>
                     </div>
@@ -108,56 +126,45 @@
             <section id="directory" class="content-section">
                 <div class="bg-white p-6 rounded-lg shadow-lg">
                     <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">供應商列表</h2>
-                     <p class="text-gray-600 mb-8 text-center max-w-3xl mx-auto">
-                        這裡是台灣市場上主要骨水泥供應商的詳細目錄。您可以透過下方的篩選器快速尋找符合您需求的產品，或在搜尋框中輸入關鍵字查找特定製造商或代理商。點擊卡片上的「加入比較」按鈕，可將該產品加入比較清單。
-                    </p>
-                    <div class="flex flex-wrap gap-4 mb-6 p-4 bg-gray-100 rounded-lg justify-center">
-                        <div class="w-full md:w-auto">
-                            <label for="search" class="sr-only">搜尋</label>
-                            <input type="text" id="search" placeholder="搜尋製造商或代理商..." class="w-full md:w-64 p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div class="w-full sm:w-auto">
-                            <label for="viscosity-filter" class="sr-only">黏稠度</label>
-                            <select id="viscosity-filter" class="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
-                                <option value="all">所有黏稠度</option>
-                                <option value="高黏稠度">高黏稠度</option>
-                                <option value="中黏稠度">中黏稠度</option>
-                                <option value="低黏稠度">低黏稠度</option>
-                            </select>
-                        </div>
-                        <div class="w-full sm:w-auto">
-                             <label for="antibiotic-filter" class="sr-only">抗生素</label>
-                             <select id="antibiotic-filter" class="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
-                                <option value="all">所有抗生素選項</option>
-                                <option value="yes">含抗生素</option>
-                                <option value="no">不含抗生素</option>
-                            </select>
-                        </div>
+                    <div class="flex flex-col md:flex-row flex-wrap gap-4 mb-6 p-4 bg-gray-100 rounded-lg justify-center items-center">
+                        <input type="text" id="search" placeholder="搜尋製造商或代理商..." class="w-full md:w-auto flex-grow p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                        <select id="tag-filter" class="w-full md:w-auto p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                            <option value="all">所有適用手術</option>
+                        </select>
+                         <select id="antibiotic-filter" class="w-full md:w-auto p-2 border rounded-md focus:ring-2 focus:ring-blue-500">
+                            <option value="all">所有抗生素選項</option>
+                            <option value="yes">含抗生素</option>
+                            <option value="no">不含抗生素</option>
+                        </select>
                     </div>
-                    <div id="supplier-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div id="supplier-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     </div>
                 </div>
             </section>
 
             <section id="comparison" class="content-section">
                  <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">產品比較</h2>
+                    <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">智慧產品比較</h2>
                     <p class="text-gray-600 mb-8 text-center max-w-3xl mx-auto">
-                        此頁面顯示您已選擇進行比較的產品。您可以在此並列檢視各產品的關鍵規格，例如黏稠度、設定時間、抗生素類型等，以利於您做出最符合臨床效益與成本考量的採購決策。請先至「供應商列表」頁面點擊「加入比較」來新增項目。
+                        您選擇比較的產品將並列於此。系統已自動<span class="font-bold text-green-600">標示出綠色</span>的相對優勢項目（如：價格最低），以及<span class="font-bold text-red-600">紅色</span>的相對弱勢項目，幫助您快速判讀。
                     </p>
                     <div id="comparison-table-container" class="overflow-x-auto min-h-[100px]">
-                        <!-- Comparison table will be generated here by JavaScript -->
                     </div>
                 </div>
             </section>
 
             <section id="considerations" class="content-section">
-                <div class="bg-white p-6 rounded-lg shadow-lg">
-                    <h2 class="text-2xl font-bold mb-4 text-center text-gray-700">採購考量</h2>
-                    <p class="text-gray-600 mb-8 text-center max-w-3xl mx-auto">
-                        除了產品規格外，骨水泥的採購決策還涉及多方面因素。本區塊整理了臨床應用、操作特性、法規與供應鏈等關鍵考量點，以 checklist 形式呈現，協助您進行全面性的評估。點擊各項標題可展開詳細說明。
-                    </p>
-                    <div id="accordion-container" class="space-y-4 max-w-4xl mx-auto">
+                 <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-bold mb-6 text-center text-gray-700">互動式採購考量評分</h2>
+                     <div id="score-dashboard" class="mb-8 p-6 bg-gray-50 rounded-lg text-center border">
+                        <h3 class="text-lg font-semibold text-gray-700">總體採購建議分數</h3>
+                        <p id="total-score" class="text-6xl font-bold text-blue-600 my-2">0</p>
+                         <div class="w-full bg-gray-200 rounded-full h-4">
+                            <div id="score-bar" class="score-bar bg-blue-500 h-4 rounded-full" style="width: 0%"></div>
+                        </div>
+                        <p id="score-suggestion" class="mt-3 text-gray-600 font-medium">-</p>
+                    </div>
+                    <div id="considerations-grid" class="space-y-8">
                     </div>
                 </div>
             </section>
@@ -167,143 +174,112 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const supplierData = [
-                { id: 1, manufacturer: 'Stryker', agent: '壯生醫療器材', country: '美國', products: [{ name: 'Simplex P', viscosity: '高黏稠度', settingTime: '9-12分鐘', antibiotic: '否', antibioticType: 'N/A' }, { name: 'Simplex P with Tobramycin', viscosity: '高黏稠度', settingTime: '9-12分鐘', antibiotic: '是', antibioticType: 'Tobramycin' }] },
-                { id: 2, manufacturer: 'DePuy Synthes (J&J)', agent: '台灣嬌生', country: '美國', products: [{ name: 'SmartSet HV', viscosity: '高黏稠度', settingTime: '11-14分鐘', antibiotic: '否', antibioticType: 'N/A' }, { name: 'SmartSet GHV', viscosity: '高黏稠度', settingTime: '11-14分鐘', antibiotic: '是', antibioticType: 'Gentamicin' }] },
-                { id: 3, manufacturer: 'Zimmer Biomet', agent: '捷邁醫療器材', country: '美國', products: [{ name: 'Refobacin Bone Cement R', viscosity: '低黏稠度', settingTime: '8-12分鐘', antibiotic: '是', antibioticType: 'Gentamicin' }, { name: 'Dough-Type Cement', viscosity: '中黏稠度', settingTime: '10-13分鐘', antibiotic: '否', antibioticType: 'N/A' }] },
-                { id: 4, manufacturer: 'Heraeus Medical', agent: '德商赫特', country: '德國', products: [{ name: 'PALACOS R', viscosity: '高黏稠度', settingTime: '8-12分鐘', antibiotic: '否', antibioticType: 'N/A' }, { name: 'PALACOS R+G', viscosity: '高黏稠度', settingTime: '8-12分鐘', antibiotic: '是', antibioticType: 'Gentamicin' }] },
-                { id: 5, manufacturer: 'Tecres S.p.A.', agent: '美敦力醫療產品', country: '義大利', products: [{ name: 'Cemex System', viscosity: '低黏稠度', settingTime: '9分鐘', antibiotic: '否', antibioticType: 'N/A' }, { name: 'Vancogenx', viscosity: '中黏稠度', settingTime: '12-15分鐘', antibiotic: '是', antibioticType: 'Vancomycin + Gentamicin' }] },
-                { id: 6, manufacturer: 'Smith & Nephew', agent: '英商史耐輝', country: '英國', products: [{ name: 'VERTEBROPLASTIC', viscosity: '低黏稠度', settingTime: '15-20分鐘', antibiotic: '否', antibioticType: 'N/A' }, { name: 'CERAMENT G', viscosity: '中黏稠度', settingTime: '10-15分鐘', antibiotic: '是', antibioticType: 'Gentamicin' }] }
+                { id: 1, manufacturer: 'Stryker', agent: '壯生醫療器材', country: '美國', products: [{ name: 'Simplex P', price: 2800, settingTime: '9-12', antibiotic: '否', antibioticType: 'N/A', tags: ['髖關節', '膝關節'] }, { name: 'Simplex P with Tobramycin', price: 4500, settingTime: '9-12', antibiotic: '是', antibioticType: 'Tobramycin', tags: ['翻修手術', '高感染風險'] }] },
+                { id: 2, manufacturer: 'DePuy Synthes (J&J)', agent: '台灣嬌生', country: '美國', products: [{ name: 'SmartSet HV', price: 3000, settingTime: '11-14', antibiotic: '否', antibioticType: 'N/A', tags: ['膝關節'] }, { name: 'SmartSet GHV', price: 4800, settingTime: '11-14', antibiotic: '是', antibioticType: 'Gentamicin', tags: ['髖關節', '翻修手術'] }] },
+                { id: 3, manufacturer: 'Zimmer Biomet', agent: '捷邁醫療器材', country: '美國', products: [{ name: 'Refobacin Bone Cement R', price: 4200, settingTime: '8-12', antibiotic: '是', antibioticType: 'Gentamicin', tags: ['脊椎', '翻修手術'] }, { name: 'Dough-Type Cement', price: 2900, settingTime: '10-13', antibiotic: '否', antibioticType: 'N/A', tags: ['膝關節'] }] },
+                { id: 4, manufacturer: 'Heraeus Medical', agent: '德商赫特', country: '德國', products: [{ name: 'PALACOS R', price: 3200, settingTime: '8-12', antibiotic: '否', antibioticType: 'N/A', tags: ['髖關節'] }, { name: 'PALACOS R+G', price: 5000, settingTime: '8-12', antibiotic: '是', antibioticType: 'Gentamicin', tags: ['髖關節', '高感染風險'] }] },
+                { id: 5, manufacturer: 'Tecres S.p.A.', agent: '美敦力醫療產品', country: '義大利', products: [{ name: 'Cemex System', price: 2700, settingTime: '9-9', antibiotic: '否', antibioticType: 'N/A', tags: ['脊椎'] }, { name: 'Vancogenx', price: 6500, settingTime: '12-15', antibiotic: '是', antibioticType: 'Vancomycin + Gentamicin', tags: ['特殊感染', '翻修手術'] }] },
+                { id: 6, manufacturer: 'Smith & Nephew', agent: '英商史耐輝', country: '英國', products: [{ name: 'VERTEBROPLASTIC', price: 3500, settingTime: '15-20', antibiotic: '否', antibioticType: 'N/A', tags: ['脊椎'] }, { name: 'CERAMENT G', price: 5500, settingTime: '10-15', antibiotic: '是', antibioticType: 'Gentamicin', tags: ['骨缺損填充'] }] }
             ];
-
-            const considerationsData = [
-                { title: '臨床應用與醫師偏好', content: '不同手術（如髖關節、膝關節、脊椎）對骨水泥的黏稠度與操作時間有不同要求。應與主要使用科部的醫師溝通，了解其手術習慣與偏好，這對於提升手術效率與成功率至關重要。' },
-                { title: '操作特性 (黏稠度與設定時間)', content: '高黏稠度骨水泥不易滲漏，適合加壓使用；低黏稠度則易於注射。設定時間需與手術流程匹配，過長或過短都可能影響手術。需評估產品的工作時間(working time)與硬化時間(setting time)是否符合需求。' },
-                { title: '抗生素添加選項', content: '含抗生素骨水泥能降低術後感染風險，尤其適用於翻修手術或高感染風險患者。需考量院內常見菌種及抗藥性，選擇合適的抗生素種類（如Gentamicin, Tobramycin）與劑量。' },
-                { title: '混合系統與氣味', content: '封閉式的混合系統能減少單體(monomer)氣體揮發，改善手術室空氣品質，並降低氣泡產生，提升骨水泥機械強度。採購時可將混合系統的便利性與安全性納入評分。' },
-                { title: '法規認證與品質文件', content: '確認產品是否取得台灣衛福部食藥署(TFDA)的醫療器材許可證。要求供應商提供完整技術文件、臨床報告及不良事件通報記錄，確保產品安全性與合規性。' },
-                { title: '供應鏈穩定性與售後服務', content: '評估代理商的庫存管理能力、配送效率及緊急訂單處理能力。了解其是否提供產品教育訓練、手術跟刀等技術支援服務，確保臨床端能正確使用產品。' }
-            ];
-
-            const tabs = document.querySelectorAll('.tab-btn');
-            const sections = document.querySelectorAll('.content-section');
-            const searchInput = document.getElementById('search');
-            const viscosityFilter = document.getElementById('viscosity-filter');
-            const antibioticFilter = document.getElementById('antibiotic-filter');
-            const supplierGrid = document.getElementById('supplier-grid');
             
-            let comparisonList = [];
+            const considerationsData = [
+                { id: 1, category: '臨床契合度', icon: '🩺', title: '臨床應用與醫師偏好', content: '是否符合主要使用科部醫師的手術習慣與偏好？', score: 0 },
+                { id: 2, category: '臨床契合度', icon: '⏱️', title: '操作特性', content: '黏稠度、工作與設定時間是否符合主要手術流程需求？', score: 0 },
+                { id: 3, category: '產品與法規', icon: '💊', title: '抗生素選項', content: '提供的抗生素種類與劑量，是否能滿足院內預防感染的需求？', score: 0 },
+                { id: 4, category: '產品與法規', icon: '💨', title: '混合系統與氣味', content: '混合系統是否便利安全？能否有效減少單體氣體揮發？', score: 0 },
+                { id: 5, category: '產品與法規', icon: '📜', title: '法規認證與品質', content: '是否具備TFDA許可證與完整的技術、臨床文件？', score: 0 },
+                { id: 6, category: '供應鏈與服務', icon: '🚚', title: '供應鏈穩定性', content: '代理商庫存、配送效率與緊急訂單處理能力是否可靠？', score: 0 },
+                { id: 7, category: '供應鏈與服務', icon: '👨‍🏫', title: '售後技術服務', content: '是否提供充足的教育訓練、跟刀支援等服務？', score: 0 }
+            ];
 
-            function switchTab(tabId) {
+            let comparisonList = [];
+            const allProducts = supplierData.flatMap(s => s.products);
+
+            function setupTabs() {
+                const tabs = document.querySelectorAll('.tab-btn');
+                const sections = document.querySelectorAll('.content-section');
                 tabs.forEach(tab => {
-                    tab.classList.toggle('active', tab.dataset.tab === tabId);
-                });
-                sections.forEach(section => {
-                    section.classList.toggle('active', section.id === tabId);
+                    tab.addEventListener('click', () => {
+                        const tabId = tab.dataset.tab;
+                        tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+                        sections.forEach(s => s.classList.toggle('active', s.id === tabId));
+                    });
                 });
             }
 
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => switchTab(tab.dataset.tab));
-            });
+            function renderKPIs() {
+                document.getElementById('kpi-total-suppliers').textContent = supplierData.length;
+                const totalPrices = allProducts.reduce((sum, p) => sum + p.price, 0);
+                document.getElementById('kpi-avg-price').textContent = (totalPrices / allProducts.length).toLocaleString('zh-TW', { style: 'currency', currency: 'TWD', minimumFractionDigits: 0 });
+                const antibioticProducts = allProducts.filter(p => p.antibiotic === '是').length;
+                document.getElementById('kpi-antibiotic-ratio').textContent = `${((antibioticProducts / allProducts.length) * 100).toFixed(0)}%`;
+            }
 
-            function renderSuppliers() {
-                const searchTerm = searchInput.value.toLowerCase();
-                const viscosity = viscosityFilter.value;
-                const antibiotic = antibioticFilter.value;
-
-                supplierGrid.innerHTML = '';
-                const filteredData = supplierData.filter(supplier => {
-                    const matchesSearch = supplier.manufacturer.toLowerCase().includes(searchTerm) || supplier.agent.toLowerCase().includes(searchTerm);
-                    return matchesSearch;
+            function populateFilters() {
+                const tagFilter = document.getElementById('tag-filter');
+                const allTags = new Set(allProducts.flatMap(p => p.tags));
+                allTags.forEach(tag => {
+                    const option = document.createElement('option');
+                    option.value = tag;
+                    option.textContent = tag;
+                    tagFilter.appendChild(option);
                 });
-
-                if (filteredData.length === 0) {
-                    supplierGrid.innerHTML = '<p class="col-span-full text-center text-gray-500">找不到符合條件的供應商。</p>';
-                    return;
-                }
-                
+            }
+            
+            function renderSuppliers() {
+                const supplierGrid = document.getElementById('supplier-grid');
+                const searchTerm = document.getElementById('search').value.toLowerCase();
+                const selectedTag = document.getElementById('tag-filter').value;
+                const selectedAntibiotic = document.getElementById('antibiotic-filter').value;
+                supplierGrid.innerHTML = '';
                 let hasVisibleProduct = false;
-                filteredData.forEach(supplier => {
+                supplierData.forEach(supplier => {
+                    const matchesSearch = supplier.manufacturer.toLowerCase().includes(searchTerm) || supplier.agent.toLowerCase().includes(searchTerm);
+                    if (!matchesSearch) return;
                     let productsHtml = '';
                     let supplierHasVisibleProduct = false;
-
                     supplier.products.forEach(product => {
-                         const matchesViscosity = viscosity === 'all' || product.viscosity === viscosity;
-                         const matchesAntibiotic = antibiotic === 'all' || (antibiotic === 'yes' && product.antibiotic === '是') || (antibiotic === 'no' && product.antibiotic === '否');
-                        
-                         if(matchesViscosity && matchesAntibiotic) {
+                        const matchesTag = selectedTag === 'all' || product.tags.includes(selectedTag);
+                        const matchesAntibiotic = selectedAntibiotic === 'all' || (selectedAntibiotic === 'yes' && product.antibiotic === '是') || (selectedAntibiotic === 'no' && product.antibiotic === '否');
+                        if (matchesTag && matchesAntibiotic) {
                             supplierHasVisibleProduct = true;
                             hasVisibleProduct = true;
                             const isAdded = comparisonList.some(item => item.supId === supplier.id && item.prodName === product.name);
-                            productsHtml += `
-                                <div class="mt-2 p-3 bg-gray-50 rounded-md">
-                                    <div class="flex justify-between items-start">
-                                        <div>
-                                            <h4 class="font-semibold text-gray-800">${product.name}</h4>
-                                            <p class="text-sm text-gray-500">${product.viscosity} / 設定時間: ${product.settingTime}</p>
-                                            <p class="text-sm text-gray-500">含抗生素: <span class="${product.antibiotic === '是' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}">${product.antibiotic} ${product.antibiotic === '是' ? `(${product.antibioticType})` : ''}</span></p>
-                                        </div>
-                                        <button data-supplier-id="${supplier.id}" data-product-name="${product.name}" class="toggle-comparison-btn text-xs px-2 py-1 rounded ${isAdded ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}">${isAdded ? '移出比較' : '加入比較'}</button>
-                                    </div>
-                                </div>
-                            `;
+                            productsHtml += `<div class="mt-2 p-3 bg-gray-50 rounded-md border"><div class="flex justify-between items-start mb-2"><h4 class="font-semibold text-gray-800">${product.name}</h4><button data-supplier-id="${supplier.id}" data-product-name="${product.name}" class="toggle-comparison-btn text-xs px-2 py-1 rounded transition-colors ${isAdded ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-blue-500 hover:bg-blue-600 text-white'}">${isAdded ? '移出比較' : '加入比較'}</button></div><p class="text-sm text-gray-600">健保點數: <span class="font-bold text-green-700">${product.price.toLocaleString()}</span></p><div class="mt-2 flex flex-wrap gap-1">${product.tags.map(tag => `<span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">${tag}</span>`).join('')}</div></div>`;
                         }
                     });
-                    
-                    if(supplierHasVisibleProduct){
-                         supplierGrid.innerHTML += `
-                            <div class="card bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                <h3 class="text-xl font-bold text-gray-800">${supplier.manufacturer}</h3>
-                                <p class="text-sm text-gray-500 mb-1">代理商: ${supplier.agent}</p>
-                                <p class="text-sm text-gray-400 mb-3">製造國: ${supplier.country}</p>
-                                <div class="space-y-2">${productsHtml}</div>
-                            </div>
-                        `;
+                    if (supplierHasVisibleProduct) {
+                        supplierGrid.innerHTML += `<div class="card bg-white p-4 rounded-lg border border-gray-200 shadow-sm"><h3 class="text-xl font-bold text-gray-800">${supplier.manufacturer}</h3><p class="text-sm text-gray-500 mb-2">代理商: ${supplier.agent}</p><div class="space-y-2">${productsHtml}</div></div>`;
                     }
                 });
-
-                if(!hasVisibleProduct && filteredData.length > 0) {
-                    supplierGrid.innerHTML = '<p class="col-span-full text-center text-gray-500">依篩選條件找不到符合的產品。</p>';
+                if (!hasVisibleProduct) {
+                    supplierGrid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-10">找不到符合條件的產品。</p>';
                 }
-
-                document.querySelectorAll('.toggle-comparison-btn').forEach(btn => {
-                    btn.addEventListener('click', toggleComparison);
-                });
+                document.querySelectorAll('.toggle-comparison-btn').forEach(btn => btn.addEventListener('click', toggleComparison));
+            }
+            
+            function toggleComparison(event) {
+                const btn = event.target;
+                const supId = parseInt(btn.dataset.supplierId);
+                const prodName = btn.dataset.productName;
+                const index = comparisonList.findIndex(item => item.supId === supId && item.prodName === prodName);
+                if (index > -1) {
+                    comparisonList.splice(index, 1);
+                } else {
+                    const supplier = supplierData.find(s => s.id === supId);
+                    const product = supplier.products.find(p => p.name === prodName);
+                    comparisonList.push({ supId: supId, supName: supplier.manufacturer, prodName: product.name, ...product });
+                }
+                renderSuppliers();
+                renderComparisonTable();
+                updateComparisonCount();
             }
 
             function updateComparisonCount() {
                 const countBadge = document.getElementById('comparison-count');
                 const count = comparisonList.length;
-                if (count > 0) {
-                    countBadge.textContent = count;
-                    countBadge.classList.remove('hidden');
-                } else {
-                    countBadge.classList.add('hidden');
-                }
-            }
-
-            function toggleComparison(event) {
-                const btn = event.target;
-                const supId = parseInt(btn.dataset.supplierId);
-                const prodName = btn.dataset.productName;
-                
-                const index = comparisonList.findIndex(item => item.supId === supId && item.prodName === prodName);
-
-                if (index > -1) {
-                    comparisonList.splice(index, 1);
-                    btn.textContent = '加入比較';
-                    btn.classList.remove('bg-red-500', 'hover:bg-red-600');
-                    btn.classList.add('bg-blue-500', 'hover:bg-blue-600');
-                } else {
-                    const supplier = supplierData.find(s => s.id === supId);
-                    const product = supplier.products.find(p => p.name === prodName);
-                    comparisonList.push({ supId: supId, supName: supplier.manufacturer, prodName: product.name, ...product });
-                    btn.textContent = '移出比較';
-                    btn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
-                    btn.classList.add('bg-red-500', 'hover:bg-red-600');
-                }
-                renderComparisonTable();
-                updateComparisonCount();
+                countBadge.textContent = count;
+                countBadge.classList.toggle('hidden', count === 0);
             }
 
             function renderComparisonTable() {
@@ -312,119 +288,133 @@
                     container.innerHTML = `<p class="text-center text-gray-500 py-10">尚未選擇任何產品進行比較。</p>`;
                     return;
                 }
-
-                let tableHtml = `
-                    <table class="w-full text-sm text-left text-gray-500">
-                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-6 py-3 sticky left-0 bg-gray-50 z-10">特性</th>
-                                ${comparisonList.map(item => `<th scope="col" class="px-6 py-3">${item.prodName}</th>`).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white z-10">製造商</th>${comparisonList.map(item => `<td class="px-6 py-4">${item.supName}</td>`).join('')}</tr>
-                            <tr class="bg-gray-50 border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-gray-50 z-10">黏稠度</th>${comparisonList.map(item => `<td class="px-6 py-4">${item.viscosity}</td>`).join('')}</tr>
-                            <tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white z-10">設定時間</th>${comparisonList.map(item => `<td class="px-6 py-4">${item.settingTime}</td>`).join('')}</tr>
-                            <tr class="bg-gray-50 border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-gray-50 z-10">含抗生素</th>${comparisonList.map(item => `<td class="px-6 py-4">${item.antibiotic}</td>`).join('')}</tr>
-                            <tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white z-10">抗生素類型</th>${comparisonList.map(item => `<td class="px-6 py-4">${item.antibioticType}</td>`).join('')}</tr>
-                        </tbody>
-                    </table>`;
-                container.innerHTML = tableHtml;
-            }
-
-            function renderAccordion() {
-                const container = document.getElementById('accordion-container');
-                container.innerHTML = '';
-                considerationsData.forEach((item, index) => {
-                    container.innerHTML += `
-                        <div>
-                            <button class="accordion-btn w-full flex justify-between items-center text-left p-4 bg-gray-100 hover:bg-gray-200 rounded-lg focus:outline-none">
-                                <span class="font-semibold text-gray-700">${item.title}</span>
-                                <span class="accordion-icon transform rotate-0 transition-transform duration-300">▼</span>
-                            </button>
-                            <div class="accordion-content bg-white p-4 rounded-b-lg border border-t-0 border-gray-200">
-                                <p>${item.content}</p>
-                            </div>
-                        </div>
-                    `;
-                });
-
-                document.querySelectorAll('.accordion-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const content = btn.nextElementSibling;
-                        const icon = btn.querySelector('.accordion-icon');
-                        const isOpened = content.style.maxHeight && content.style.maxHeight !== '0px';
-
-                        document.querySelectorAll('.accordion-content').forEach(c => c.style.maxHeight = '0px');
-                        document.querySelectorAll('.accordion-icon').forEach(i => i.style.transform = 'rotate(0deg)');
-
-                        if (!isOpened) {
-                            content.style.maxHeight = content.scrollHeight + 'px';
-                            icon.style.transform = 'rotate(180deg)';
+                const getNumericValue = (val, position = 'min') => {
+                    if (typeof val === 'number') return val;
+                    if (typeof val === 'string' && val.includes('-')) { const parts = val.split('-').map(Number); return position === 'min' ? parts[0] : parts[1]; }
+                    return null;
+                };
+                const prices = comparisonList.map(p => p.price); const minPrice = Math.min(...prices); const maxPrice = Math.max(...prices);
+                const settingTimesMin = comparisonList.map(p => getNumericValue(p.settingTime, 'min')); const minSettingTime = Math.min(...settingTimesMin); const maxSettingTime = Math.max(...settingTimesMin);
+                let tableHtml = `<table class="w-full text-sm text-left text-gray-500"><thead class="text-xs text-gray-700 uppercase bg-gray-50"><tr><th scope="col" class="px-6 py-3 sticky left-0 bg-gray-50 z-10 border-r">特性</th>${comparisonList.map(item => `<th scope="col" class="px-6 py-3 text-center">${item.prodName}</th>`).join('')}</tr></thead><tbody>`;
+                const rows = [{ label: '製造商', key: 'supName' }, { label: '健保點數 (TWD)', key: 'price', highlight: { min: minPrice, max: maxPrice } }, { label: '設定時間 (分鐘)', key: 'settingTime', highlight: { min: minSettingTime, max: maxSettingTime, pos: 'min' } }, { label: '含抗生素', key: 'antibiotic' }, { label: '抗生素類型', key: 'antibioticType' }, { label: '適用手術', key: 'tags' }];
+                rows.forEach((row, index) => {
+                    const bgColorClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                    tableHtml += `<tr class="${bgColorClass} border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap sticky left-0 ${bgColorClass} z-10 border-r">${row.label}</th>`;
+                    comparisonList.forEach(item => {
+                        let cellValue = item[row.key]; if (Array.isArray(cellValue)) cellValue = cellValue.join(', '); if (row.key === 'price') cellValue = cellValue.toLocaleString();
+                        let highlightClass = '';
+                        if (row.highlight) {
+                            const numericValue = getNumericValue(item[row.key], row.highlight.pos || 'min');
+                            if (numericValue === row.highlight.min) highlightClass = 'highlight-best';
+                            if (numericValue === row.highlight.max) highlightClass = 'highlight-worst';
                         }
+                        tableHtml += `<td class="px-6 py-4 text-center ${highlightClass}">${cellValue}</td>`;
+                    });
+                    tableHtml += `</tr>`;
+                });
+                tableHtml += `</tbody></table>`; container.innerHTML = tableHtml;
+            }
+            
+            function renderConsiderations() {
+                const grid = document.getElementById('considerations-grid');
+                const groupedData = considerationsData.reduce((acc, item) => {
+                    (acc[item.category] = acc[item.category] || []).push(item);
+                    return acc;
+                }, {});
+
+                let html = '';
+                for (const category in groupedData) {
+                    html += `<div class="category-group">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4 pb-2 border-b-2 border-blue-200">${category}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">`;
+                    
+                    groupedData[category].forEach(item => {
+                        html += `
+                        <div class="bg-white p-4 rounded-lg border shadow-sm">
+                            <div class="flex items-start">
+                                <span class="text-3xl mr-4">${item.icon}</span>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900">${item.title}</h4>
+                                    <p class="text-sm text-gray-600 mt-1">${item.content}</p>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex justify-end space-x-2">
+                                <button data-id="${item.id}" data-score="0" class="rating-btn px-3 py-1 text-sm font-medium rounded-full bg-red-100 text-red-800 hover:bg-red-200 border-red-300">不符合</button>
+                                <button data-id="${item.id}" data-score="1" class="rating-btn px-3 py-1 text-sm font-medium rounded-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300">部分符合</button>
+                                <button data-id="${item.id}" data-score="2" class="rating-btn px-3 py-1 text-sm font-medium rounded-full bg-green-100 text-green-800 hover:bg-green-200 border-green-300">完全符合</button>
+                            </div>
+                        </div>`;
+                    });
+                    html += `</div></div>`;
+                }
+                grid.innerHTML = html;
+
+                document.querySelectorAll('.rating-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const id = parseInt(e.target.dataset.id);
+                        const score = parseInt(e.target.dataset.score);
+                        const item = considerationsData.find(i => i.id === id);
+                        item.score = score;
+                        
+                        // Update button visual state
+                        e.target.parentElement.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active', 'shadow-outline'));
+                        e.target.classList.add('active');
+                        
+                        updateTotalScore();
                     });
                 });
             }
 
+            function updateTotalScore() {
+                const maxScore = considerationsData.length * 2;
+                const currentScore = considerationsData.reduce((sum, item) => sum + item.score, 0);
+                const scorePercentage = (currentScore / maxScore) * 100;
+
+                const totalScoreEl = document.getElementById('total-score');
+                const scoreBarEl = document.getElementById('score-bar');
+                const suggestionEl = document.getElementById('score-suggestion');
+
+                totalScoreEl.textContent = currentScore;
+                scoreBarEl.style.width = `${scorePercentage}%`;
+
+                if (scorePercentage >= 80) {
+                    suggestionEl.textContent = "高度匹配，建議優先考慮";
+                    suggestionEl.className = "mt-3 font-medium text-green-600";
+                    scoreBarEl.className = "score-bar bg-green-500 h-4 rounded-full";
+                } else if (scorePercentage >= 50) {
+                    suggestionEl.textContent = "基本符合，可納入採購選項";
+                    suggestionEl.className = "mt-3 font-medium text-yellow-600";
+                    scoreBarEl.className = "score-bar bg-yellow-500 h-4 rounded-full";
+                } else {
+                    suggestionEl.textContent = "契合度較低，需謹慎評估";
+                    suggestionEl.className = "mt-3 font-medium text-red-600";
+                    scoreBarEl.className = "score-bar bg-red-500 h-4 rounded-full";
+                }
+            }
+
+            function setupEventListeners() {
+                document.getElementById('search').addEventListener('input', renderSuppliers);
+                document.getElementById('tag-filter').addEventListener('change', renderSuppliers);
+                document.getElementById('antibiotic-filter').addEventListener('change', renderSuppliers);
+            }
+
+            // Chart.js Initialization
             const marketShareCtx = document.getElementById('marketShareChart').getContext('2d');
             new Chart(marketShareCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Stryker', 'DePuy Synthes', 'Heraeus Medical', 'Zimmer Biomet', 'Others'],
-                    datasets: [{
-                        label: '市佔率',
-                        data: [35, 25, 18, 15, 7],
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'],
-                        borderColor: '#f8f9fa',
-                        borderWidth: 4,
-                        hoverOffset: 10
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                font: { size: 14 }
-                            }
-                        },
-                        title: {
-                            display: true,
-                            text: '主要製造商市場份額預估',
-                            font: { size: 18, weight: 'bold' },
-                            padding: { top: 10, bottom: 20 }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed !== null) {
-                                        label += context.parsed + '%';
-                                    }
-                                    return label;
-                                }
-                            }
-                        }
-                    }
-                }
+                type: 'doughnut', data: { labels: ['Stryker', 'DePuy Synthes', 'Heraeus Medical', 'Zimmer Biomet', 'Others'], datasets: [{ label: '市佔率', data: [35, 25, 18, 15, 7], backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#64748b'], borderColor: '#f8f9fa', borderWidth: 4, hoverOffset: 10 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 14 }}}, title: { display: true, text: '主要製造商市場份額預估', font: { size: 16, weight: 'bold' }}, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed}%` }}}}
             });
 
-            searchInput.addEventListener('input', renderSuppliers);
-            viscosityFilter.addEventListener('change', renderSuppliers);
-            antibioticFilter.addEventListener('change', renderSuppliers);
-
+            // Initial Load
+            setupTabs();
+            renderKPIs();
+            populateFilters();
             renderSuppliers();
             renderComparisonTable();
-            renderAccordion();
+            renderConsiderations();
             updateComparisonCount();
+            setupEventListeners();
         });
     </script>
-
 </body>
 </html>
-
